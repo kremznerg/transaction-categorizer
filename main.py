@@ -1,6 +1,7 @@
 import csv
 from dataclasses import dataclass, field
 from datetime import date, datetime
+import json
 
 @dataclass
 class Transaction:
@@ -52,69 +53,22 @@ def load_transactions(filename: str) -> list[Transaction]:
         print(f"Error: The file {filename} was not found.")
     return transactions
 
+def load_rules_from_json(filename: str) -> dict[str,str]:
+    """Loads categorization rules from a JSON file."""
+    try:
+        with open(filename, mode="r", encoding="utf-8") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        print(f"Error: Rules file '{filename}' not found. Using empty rules.")
+        return {}
+    except json.JSONDecodeError:
+        print(f"Error: Could not decode JSON from '{filename}' Check for syntax errors.")
+        return {}
+
 def main():
     """Main function to run the transaction categorizer."""
-    rules = {
-        # Bevételek
-        "Fizetes": "Bevetel",
-        "OTP Bank Kamat": "Bevetel",
 
-        # Élelmiszer
-        "SPAR": "Elelmiszer",
-        "Lidl": "Elelmiszer",
-        "Tesco": "Elelmiszer",
-        "Auchan": "Elelmiszer",
-        "ALDI": "Elelmiszer",
-
-        # Utazás és közlekedés
-        "MOL": "Utazas",
-        "OMV": "Utazas",
-        "Shell": "Utazas",
-        "MÁV": "Kozlekedes",
-        "Budapesti Kozlekedesi Kozpont": "Kozlekedes",
-        "BKK Automata": "Kozlekedes",
-
-        # Számlák és rezsi
-        "E.ON": "Szamlak",
-        "MVM": "Szamlak",
-        "Digi": "Szamlak",
-        "Telekom": "Szamlak",
-
-        # Szórakozás és előfizetések
-        "Netflix": "Szorakozas",
-        "Spotify": "Szorakozas",
-        "HBO": "Szorakozas",
-        "Cinema City": "Szorakozas",
-        "Libri": "Kultura",
-
-        # Étterem és ételrendelés
-        "Wolt": "Etterem",
-        "Foodora": "Etterem",
-        "Netpincer": "Etterem",
-        "McDonalds": "Etterem",
-        "KFC": "Etterem",
-        "Burger King": "Etterem",
-        "Starbucks": "Kavezo",
-
-        # Drogéria és egészség
-        "Rossmann": "Drogeria",
-        "DM": "Drogeria",
-        "Gyogyszertar": "Egeszseg",
-
-        # Ruházkodás
-        "H&M": "Ruhazkodas",
-        "Zara": "Ruhazkodas",
-        "Pull&Bear": "Ruhazkodas",
-
-        # Sport és szabadidő
-        "Decathlon": "Sport",
-
-        # Lakberendezés és barkács
-        "Praktiker": "Barkacs",
-        "IKEA": "Lakberendezes",
-        "Obi": "Barkacs",
-    }
-
+    rules = load_rules_from_json('rules.json')
     transactions = load_transactions('transactions.csv')
     engine = RuleEngine(rules)
 
