@@ -2,6 +2,7 @@ import csv
 from dataclasses import dataclass, field
 from datetime import date, datetime
 import json
+import sqlite3
 
 @dataclass
 class Transaction:
@@ -82,9 +83,34 @@ def prompt_for_new_rule(partner: str) -> tuple[str, str]:
         new_category = input("Please enter the category: ")
     return new_partner, new_category
 
+def init_db():
+    conn = sqlite3.connect("transactions.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS rules (
+                keyword TEXT PRIMARY KEY,
+                category TEXT NOT NULL
+            )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS transactions (
+                id INTEGER PRIMARY KEY,
+                date TEXT NOT NULL,
+                partner TEXT NOT NULL,
+                currency TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                category TEXT NOT NULL DEFAULT 'Uncategorized'
+
+            )
+    """)
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 def main():
     """Main function to run the transaction categorizer."""
+
     rules = load_rules_from_json('rules.json')
     transactions = load_transactions('transactions.csv')
     engine = RuleEngine(rules)
