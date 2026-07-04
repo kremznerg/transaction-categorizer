@@ -66,13 +66,6 @@ def load_rules_from_json(filename: str) -> dict[str,str]:
         print(f"Error: Could not decode JSON from '{filename}' Check for syntax errors.")
         return {}
 
-def save_rules_to_json(filename: str, rules: dict[str, str]) -> None:
-    """Saves rules to a JSON file."""
-    try:
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(rules, f, indent=4, ensure_ascii=False)
-    except OSError as e:
-        print(f"Error while saving: {e}")
 
 def prompt_for_new_rule(partner: str) -> tuple[str, str]:
     """Prompts user for a matching keyword and category."""
@@ -108,11 +101,60 @@ def init_db():
     cursor.close()
     conn.close()
 
+
+def seed_db(conn):
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM rules")
+    rules_count = cursor.fetchone()[0]
+
+    if rules_count == 0:
+        rules = load_rules_from_json("rules.json")
+        for kw, cat in rules.items():
+            cursor.execute("INSERT INTO rules (keyword, category) VALUES (?, ?)", (kw, cat))
+        conn.commit()
+
+    cursor.execute("SELECT COUNT(*) FROM transactions")
+    transactions_count = cursor.fetchone()[0]
+
+    if transactions_count == 0:
+        transactions = load_transactions("transactions.csv")
+        for t in transactions:
+            cursor.execute("INSERT INTO transactions (id, date, partner, currency, amount, category) VALUES (?, ?, ?, ?, ?, ?)",
+            (t.id, t.date.isoformat(), t.partner, t.currency, t.amount, t.category)
+        )
+        conn.commit()
+    cursor.close()
+ 
+
 def main():
     """Main function to run the transaction categorizer."""
+    init_db()
+    conn = sqlite3.connect("transactions.db")
+    cursor = conn.cursor()
+    seed_db(conn)
 
-    rules = load_rules_from_json('rules.json')
-    transactions = load_transactions('transactions.csv')
+    cursor.execute("SELECT keyword, category FROM rules")
+    rows = cursor.fetchall()
+
+    rules = {}
+    for row in rows:
+        rules[row[0]] = row[1]
+
+    cursor.execute("SELECT id, date, partner, currency, amount, category FROM transactions")
+    rows = cursor.fetchall()
+    transactions = []
+    for row in rows:
+        t = Transaction(
+            id=row[0],
+            date=date.fromisoformat(row[1]),
+            partner=row[2],
+            currency=row[3],
+            amount=row[4],
+            category=row[5]
+        )
+        transactions.append(t)
+
     engine = RuleEngine(rules)
 
     for t in transactions:
@@ -120,9 +162,15 @@ def main():
         if t.category == "Uncategorized":
             new_partner, new_category = prompt_for_new_rule(t.partner)
             rules.update({new_partner: new_category})
-            save_rules_to_json('rules.json', rules)
+            cursor.execute("INSERT OR REPLACE INTO rules (keyword, category) VALUES (?, ?)",
+            (new_partner, new_category))
             t.category = new_category
+            cursor.execute("UPDATE transactions SET category = ? WHERE id =?", (new_category, t.id))
+            conn.commit()
         print(f"Partner: {t.partner:<35} | Category: {t.category}")
+
+    cursor.close()
+    conn.close()
 
 if __name__ == "__main__":
     main()
