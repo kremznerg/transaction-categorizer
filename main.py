@@ -65,6 +65,14 @@ def load_rules_from_json(filename: str) -> dict[str,str]:
         print(f"Error: Could not decode JSON from '{filename}' Check for syntax errors.")
         return {}
 
+def save_rules_to_json(filename: str, rules: dict[str, str]) -> None:
+    """Saves rules to a JSON file."""
+    try:
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(rules, f, indent=4, ensure_ascii=False)
+    except OSError as e:
+        print(f"Error while saving: {e}")
+
 def main():
     """Main function to run the transaction categorizer."""
 
@@ -74,7 +82,16 @@ def main():
 
     for t in transactions:
         t.category = engine.categorize(t)
-        print(f"Partner: {t.partner:<35} | Kategória: {t.category}")
+        if t.category == "Uncategorized":
+            print(f"Unknown partner: {t.partner}.")
+            new_partner = input("Enter matching keyword (deafult: {t.partner}): ") or t.partner
+            new_category = ""
+            while not new_category.strip():
+                new_category = input("Please enter the category: ")
+            rules.update({new_partner: new_category})
+            save_rules_to_json('rules.json', rules)
+            t.category = new_category
+        print(f"Partner: {t.partner:<35} | Category: {t.category}")
 
 if __name__ == "__main__":
     main()
