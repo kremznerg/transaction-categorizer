@@ -108,22 +108,20 @@ def seed_db(conn):
     cursor.execute("SELECT COUNT(*) FROM rules")
     rules_count = cursor.fetchone()[0]
 
-    if rules_count == 0:
-        rules = load_rules_from_json("rules.json")
-        for kw, cat in rules.items():
-            cursor.execute("INSERT INTO rules (keyword, category) VALUES (?, ?)", (kw, cat))
-        conn.commit()
+    rules = load_rules_from_json("rules.json")
+    for kw, cat in rules.items():
+        cursor.execute("INSERT OR IGNORE INTO rules (keyword, category) VALUES (?, ?)", (kw, cat))
+    conn.commit()
 
     cursor.execute("SELECT COUNT(*) FROM transactions")
     transactions_count = cursor.fetchone()[0]
 
-    if transactions_count == 0:
-        transactions = load_transactions("transactions.csv")
-        for t in transactions:
-            cursor.execute("INSERT INTO transactions (id, date, partner, currency, amount, category) VALUES (?, ?, ?, ?, ?, ?)",
-            (t.id, t.date.isoformat(), t.partner, t.currency, t.amount, t.category)
-        )
-        conn.commit()
+    transactions = load_transactions("transactions.csv")
+    for t in transactions:
+        cursor.execute("INSERT OR IGNORE INTO transactions (id, date, partner, currency, amount, category) VALUES (?, ?, ?, ?, ?, ?)",
+        (t.id, t.date.isoformat(), t.partner, t.currency, t.amount, t.category)
+    )
+    conn.commit()
     cursor.close()
  
 
@@ -158,6 +156,7 @@ def main():
     engine = RuleEngine(rules)
 
     for t in transactions:
+        db_category = t.category
         t.category = engine.categorize(t)
         if t.category == "Uncategorized":
             new_partner, new_category = prompt_for_new_rule(t.partner)
@@ -167,7 +166,11 @@ def main():
             t.category = new_category
             cursor.execute("UPDATE transactions SET category = ? WHERE id =?", (new_category, t.id))
             conn.commit()
+        elif t.category != db_category:
+            cursor.execute("UPDATE transactions SET category = ? WHERE id = ?", (t.category, t.id))
+            conn.commit()
         print(f"Partner: {t.partner:<35} | Category: {t.category}")
+    
 
     cursor.close()
     conn.close()
