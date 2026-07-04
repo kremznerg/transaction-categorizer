@@ -73,9 +73,18 @@ def save_rules_to_json(filename: str, rules: dict[str, str]) -> None:
     except OSError as e:
         print(f"Error while saving: {e}")
 
+def prompt_for_new_rule(partner: str) -> tuple[str, str]:
+    """Prompts user for a matching keyword and category."""
+    print(f"Unknown partner: {partner}.")
+    new_partner = input(f"Enter matching keyword (default: {partner}): ") or partner
+    new_category = ""
+    while not new_category.strip():
+        new_category = input("Please enter the category: ")
+    return new_partner, new_category
+
+
 def main():
     """Main function to run the transaction categorizer."""
-
     rules = load_rules_from_json('rules.json')
     transactions = load_transactions('transactions.csv')
     engine = RuleEngine(rules)
@@ -83,11 +92,7 @@ def main():
     for t in transactions:
         t.category = engine.categorize(t)
         if t.category == "Uncategorized":
-            print(f"Unknown partner: {t.partner}.")
-            new_partner = input("Enter matching keyword (deafult: {t.partner}): ") or t.partner
-            new_category = ""
-            while not new_category.strip():
-                new_category = input("Please enter the category: ")
+            new_partner, new_category = prompt_for_new_rule(t.partner)
             rules.update({new_partner: new_category})
             save_rules_to_json('rules.json', rules)
             t.category = new_category
