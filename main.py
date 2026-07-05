@@ -1,5 +1,5 @@
 import csv
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime
 import json
 import sqlite3
@@ -125,6 +125,25 @@ def seed_db(conn):
     cursor.close()
  
 
+def display_monthly_statistics(conn):
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT
+            strftime('%Y-%m', date) AS month,
+            category,
+            SUM(amount) AS total
+        FROM transactions
+        GROUP BY month, category
+        ORDER BY month, category
+    """)
+    rows = cursor.fetchall()
+
+    print(f"\n{'Month':<10} | {'Category':<20} | {'Total Amount':<12}")
+    print("-" * 50)
+    for row in rows:
+        print(f"{row[0]:<10} | {row[1]:<20} | {row[2]:>12}")
+    cursor.close()
+    
 def main():
     """Main function to run the transaction categorizer."""
     init_db()
@@ -171,6 +190,7 @@ def main():
             conn.commit()
         print(f"Partner: {t.partner:<35} | Category: {t.category}")
     
+    display_monthly_statistics(conn)
 
     cursor.close()
     conn.close()
